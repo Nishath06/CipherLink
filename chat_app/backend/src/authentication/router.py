@@ -31,11 +31,14 @@ auth_router = APIRouter(tags=["Authentication"])
 @auth_router.post(
     "/google-login/",
     dependencies=[
-        Depends(RateLimiter(times=50, hours=24)),  # keep lower of result on top
+        Depends(RateLimiter(times=50, hours=24)),
         Depends(RateLimiter(times=10, minutes=1)),
     ],
     summary="Login with Google oauth2",
 )
+@auth_router.post("/google-login", summary="Login with Google oauth2 (no slash)")
+@auth_router.post("/google", summary="Login with Google oauth2 (short)")
+@auth_router.post("/google/", summary="Login with Google oauth2 (short slash)")
 async def login_with_google(
     response: Response,
     google_login_schema: GoogleLoginSchema,

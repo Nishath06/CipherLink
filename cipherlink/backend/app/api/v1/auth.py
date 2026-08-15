@@ -301,12 +301,10 @@ async def login(
     )
 
 
-@router.post(
-    "/google",
-    response_model=ApiResponse,
-    summary="Authenticate with Google OAuth2",
-    description="Authenticates or registers a user using Google OAuth ID token / credential.",
-)
+@router.post("/google", response_model=ApiResponse, summary="Authenticate with Google OAuth2")
+@router.post("/google/", response_model=ApiResponse, summary="Authenticate with Google OAuth2 (slash)")
+@router.post("/google-login", response_model=ApiResponse, summary="Authenticate with Google OAuth2 (legacy)")
+@router.post("/google-login/", response_model=ApiResponse, summary="Authenticate with Google OAuth2 (legacy slash)")
 async def google_login(
     request: Request,
     body: GoogleLoginRequest,
@@ -322,7 +320,8 @@ async def google_login(
             import urllib.request
             import json
             req_url = f"https://oauth2.googleapis.com/tokeninfo?id_token={credential}"
-            with urllib.request.urlopen(req_url) as resp:
+            req = urllib.request.Request(req_url, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req) as resp:
                 if resp.status == 200:
                     token_info = json.loads(resp.read().decode('utf-8'))
                     email = token_info.get("email") or email
@@ -333,15 +332,13 @@ async def google_login(
         try:
             import urllib.request
             import json
-            req = urllib.request.Request(
-                "https://www.googleapis.com/oauth2/v3/userinfo",
-                headers={"Authorization": f"Bearer {credential}"}
-            )
+            req_url = f"https://www.googleapis.com/oauth2/v3/userinfo?access_token={credential}"
+            req = urllib.request.Request(req_url, headers={"User-Agent": "Mozilla/5.0", "Authorization": f"Bearer {credential}"})
             with urllib.request.urlopen(req) as resp:
                 if resp.status == 200:
                     user_info = json.loads(resp.read().decode('utf-8'))
                     email = user_info.get("email") or email
-                    full_name = user_info.get("name") or full_name
+                    full_name = user_info.get("name") or user_info.get("given_name") or full_name
         except Exception as e:
             logger.warning(f"[GOOGLE AUTH] Access Token userinfo check fallback: {e}")
 
