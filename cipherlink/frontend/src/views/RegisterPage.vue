@@ -146,10 +146,48 @@ async function handleRegister() {
   }
 }
 
+const GOOGLE_CLIENT_ID = '324594671504-acvi8b855v595drr2vba8npqhu9n9knj.apps.googleusercontent.com'
+
 async function handleGoogleSignIn() {
   error.value = ''
   googleLoading.value = true
 
+  try {
+    if (window.google?.accounts?.id) {
+      window.google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: async (response) => {
+          try {
+            const result = await auth.loginWithGoogle({
+              credential: response.credential,
+            })
+            if (result && result.success) {
+              window.location.href = '/dashboard'
+            } else {
+              error.value = result?.error?.message || 'Google registration failed'
+            }
+          } catch (err) {
+            error.value = err.response?.data?.detail || 'Google registration failed'
+          } finally {
+            googleLoading.value = false
+          }
+        },
+      })
+      window.google.accounts.id.prompt((notification) => {
+        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+          promptFallback()
+        }
+      })
+    } else {
+      await promptFallback()
+    }
+  } catch (e) {
+    error.value = e.response?.data?.detail || e.response?.data?.error?.message || 'Google registration failed'
+    googleLoading.value = false
+  }
+}
+
+async function promptFallback() {
   try {
     let userEmail = prompt('Enter your Google email for OAuth SSO:', 'user@google.com')
     if (!userEmail) {
