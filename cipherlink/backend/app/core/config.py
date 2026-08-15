@@ -34,6 +34,10 @@ class Settings(BaseSettings):
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
+    # ── Google OAuth ─────────────────────────────
+    GOOGLE_CLIENT_ID: Optional[str] = None
+    GOOGLE_CLIENT_SECRET: Optional[str] = None
+
     # ── Encryption ───────────────────────────────
     ENCRYPTION_MASTER_KEY: str = "CHANGE_ME_TO_A_64_CHAR_HEX_MASTER_KEY"
 

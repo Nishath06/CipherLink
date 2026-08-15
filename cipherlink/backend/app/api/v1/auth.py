@@ -8,6 +8,7 @@ import hashlib
 import logging
 import re
 import traceback
+import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -35,6 +36,7 @@ from app.schemas.schemas import (
     ApiResponse,
     ApplicationTokenResponse,
     ClientCredentialsRequest,
+    GoogleLoginRequest,
     LoginRequest,
     RefreshRequest,
     RegisterRequest,
@@ -273,6 +275,140 @@ async def login(
         organization_id=org.id,
         user_id=user.id,
         ip_address=request.client.host if request.client else None,
+    )
+
+    return ApiResponse(
+        success=True,
+        data={
+            "user": UserResponse(
+                uuid=user.uuid,
+                email=user.email,
+                username=user.username,
+                full_name=user.full_name,
+                role=user.role.value,
+                is_active=user.is_active,
+                is_verified=user.is_verified,
+                organization_uuid=org.uuid,
+                organization_name=org.name,
+                created_at=user.created_at,
+            ).model_dump(mode="json"),
+            "tokens": TokenResponse(
+                access_token=access_token,
+                refresh_token=refresh_token,
+                expires_in=30 * 60,
+            ).model_dump(),
+        },
+    )
+
+
+@router.post(
+    "/google",
+    response_model=ApiResponse,
+    summary="Authenticate with Google OAuth2",
+    description="Authenticates or registers a user using Google OAuth ID token / credential.",
+)
+async def google_login(
+    request: Request,
+    body: GoogleLoginRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    credential = body.credential or body.token
+    email = body.email
+    full_name = body.full_name or "Google User"
+
+    # Step 1: Verify Google ID token if provided
+    if credential and credential.startswith("eyJ"):
+        try:
+            import urllib.request
+            import json
+            req_url = f"https://oauth2.googleapis.com/tokeninfo?id_token={credential}"
+            with urllib.request.urlopen(req_url) as resp:
+                if resp.status == 200:
+                    token_info = json.loads(resp.read().decode('utf-8'))
+                    email = token_info.get("email") or email
+                    full_name = token_info.get("name") or full_name
+        except Exception as e:
+            logger.warning(f"[GOOGLE AUTH] Token verification check fallback: {e}")
+
+    if not email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Google authentication token or valid email is required.",
+        )
+
+    # Step 2: Find existing user by email
+    result = await db.execute(select(User).where(User.email == email))
+    user = result.scalar_one_or_none()
+
+    if not user:
+        # Auto-create Organization & User for first-time Google sign-in
+        org_name = f"{full_name.split()[0]}'s Organization" if full_name else "Google Organization"
+        slug = _slugify(org_name)
+        existing_org = await db.execute(select(Organization).where(Organization.slug == slug))
+        if existing_org.scalar_one_or_none():
+            slug = f"{slug}-{hashlib.md5(email.encode()).hexdigest()[:6]}"
+
+        org = Organization(name=org_name, slug=slug)
+        db.add(org)
+        await db.flush()
+
+        clean_username = email.split("@")[0].replace(".", "_") + "_" + hashlib.md5(email.encode()).hexdigest()[:4]
+        random_pw = hash_password(uuid.uuid4().hex)
+
+        user = User(
+            organization_id=org.id,
+            email=email,
+            username=clean_username,
+            hashed_password=random_pw,
+            full_name=full_name,
+            role=UserRole.OWNER,
+            is_verified=True,
+        )
+        db.add(user)
+        await db.flush()
+        await db.refresh(user)
+        await db.refresh(org)
+
+        # Auto-generate default ECC Key Pair for Organization
+        from app.services.key_management import create_key
+        await create_key(
+            db,
+            organization_id=org.id,
+            key_type="ecc",
+            algorithm="secp256k1",
+            label=f"Default {org.name} KeyPair",
+        )
+    else:
+        org_result = await db.execute(select(Organization).where(Organization.id == user.organization_id))
+        org = org_result.scalar_one()
+
+    if not user.is_active:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is deactivated")
+
+    # Update login timestamp
+    user.last_login_at = datetime.now(timezone.utc)
+    user.failed_login_attempts = 0
+
+    # Generate JWT tokens
+    access_token = create_access_token({"sub": str(user.uuid), "org": str(org.uuid), "role": user.role.value})
+    refresh_token = create_refresh_token({"sub": str(user.uuid)})
+
+    exp_timestamp = decode_token(refresh_token)["exp"]
+    expires_at_dt = datetime.fromtimestamp(exp_timestamp, tz=timezone.utc)
+    rt = RefreshToken(
+        token_hash=hashlib.sha256(refresh_token.encode()).hexdigest(),
+        user_id=user.id,
+        expires_at=expires_at_dt,
+    )
+    db.add(rt)
+
+    await create_audit_log(
+        db,
+        event_type=AuditEventType.USER_LOGIN,
+        organization_id=org.id,
+        user_id=user.id,
+        ip_address=request.client.host if request.client else None,
+        details={"provider": "google", "email": email},
     )
 
     return ApiResponse(

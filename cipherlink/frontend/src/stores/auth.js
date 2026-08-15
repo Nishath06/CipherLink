@@ -31,6 +31,14 @@ export const useAuthStore = defineStore('auth', {
       return data
     },
 
+    async loginWithGoogle(payload) {
+      const { data } = await api.post('/api/v1/auth/google', payload)
+      if (data.success) {
+        this.setAuth(data.data.user, data.data.tokens)
+      }
+      return data
+    },
+
     setAuth(user, tokens) {
       this.user = user
       this.accessToken = tokens.access_token
