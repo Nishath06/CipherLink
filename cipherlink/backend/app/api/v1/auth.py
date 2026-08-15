@@ -316,7 +316,7 @@ async def google_login(
     email = body.email
     full_name = body.full_name or "Google User"
 
-    # Step 1: Verify Google ID token if provided
+    # Step 1: Verify Google token (ID token or Access token)
     if credential and credential.startswith("eyJ"):
         try:
             import urllib.request
@@ -328,7 +328,22 @@ async def google_login(
                     email = token_info.get("email") or email
                     full_name = token_info.get("name") or full_name
         except Exception as e:
-            logger.warning(f"[GOOGLE AUTH] Token verification check fallback: {e}")
+            logger.warning(f"[GOOGLE AUTH] ID Token verification check fallback: {e}")
+    elif credential:
+        try:
+            import urllib.request
+            import json
+            req = urllib.request.Request(
+                "https://www.googleapis.com/oauth2/v3/userinfo",
+                headers={"Authorization": f"Bearer {credential}"}
+            )
+            with urllib.request.urlopen(req) as resp:
+                if resp.status == 200:
+                    user_info = json.loads(resp.read().decode('utf-8'))
+                    email = user_info.get("email") or email
+                    full_name = user_info.get("name") or full_name
+        except Exception as e:
+            logger.warning(f"[GOOGLE AUTH] Access Token userinfo check fallback: {e}")
 
     if not email:
         raise HTTPException(

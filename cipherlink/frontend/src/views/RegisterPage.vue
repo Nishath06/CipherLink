@@ -153,13 +153,20 @@ async function handleGoogleSignIn() {
   googleLoading.value = true
 
   try {
-    if (window.google?.accounts?.id) {
-      window.google.accounts.id.initialize({
+    if (window.google?.accounts?.oauth2) {
+      const client = window.google.accounts.oauth2.initTokenClient({
         client_id: GOOGLE_CLIENT_ID,
-        callback: async (response) => {
+        scope: 'openid email profile',
+        prompt: 'select_account',
+        callback: async (tokenResponse) => {
+          if (tokenResponse.error) {
+            error.value = 'Google sign-in cancelled or closed.'
+            googleLoading.value = false
+            return
+          }
           try {
             const result = await auth.loginWithGoogle({
-              credential: response.credential,
+              credential: tokenResponse.access_token,
             })
             if (result && result.success) {
               window.location.href = '/dashboard'
@@ -173,11 +180,7 @@ async function handleGoogleSignIn() {
           }
         },
       })
-      window.google.accounts.id.prompt((notification) => {
-        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-          promptFallback()
-        }
-      })
+      client.requestAccessToken({ prompt: 'select_account' })
     } else {
       await promptFallback()
     }
