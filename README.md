@@ -1,4 +1,4 @@
-# 🔐 Akatsuki Workspace Projects Hub
+# 🔐 Project Workspace
 
 This workspace contains two distinct, high-performance cryptographic security projects:
 
