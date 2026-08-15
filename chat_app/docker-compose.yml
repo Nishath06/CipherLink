@@ -1,0 +1,24 @@
+version: "3.8"
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cipherlink-app
+    restart: always
+    ports:
+      - "80:80"
+    environment:
+      - ENVIRONMENT=production
+      - DB_HOST=127.0.0.1
+      - DB_PORT=5432
+      - DB_NAME=postgres
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - REDIS_HOST=127.0.0.1
+      - REDIS_PORT=6379
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-AKIA45Y2RPBFNXKBOQOC}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-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}
+      - AWS_REGION_NAME=${AWS_REGION_NAME:-us-east-1}
+      - AWS_IMAGES_BUCKET=${AWS_IMAGES_BUCKET:-fastapijp}

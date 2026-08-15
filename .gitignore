@@ -1,0 +1,61 @@
+# Dependencies
+node_modules/
+**/node_modules/
+package-lock.json.bak
+
+# Python Virtual Environments & Packages
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+**/env/
+**/venv/
+.venv/
+
+# Python Byte-code / Cache
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+**/pytest_cache/
+.coverage
+htmlcov/
+.nox/
+.ruff_cache/
+
+# Environment Variables & Secrets
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+
+# Local Storage & App Data
+app_storage/
+**/app_storage/
+storage/
+**/storage/
+*.enc
+
+# Build & Output
+dist/
+**/dist/
+build/
+**/build/
+*.egg-info/
+.eggs/
+
+# Redis dumps & Logs
+*.log
+dump.rdb
+
+# Editor & OS files
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
