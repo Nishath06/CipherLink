@@ -76,8 +76,15 @@ async def verify_google_token(google_access_token: str) -> dict[str, str] | None
         else:
             return None
 
-    # check that user_info contains email, given and family name
-    if {"email", "given_name", "family_name"}.issubset(set(user_info)):
+    # check that user_info contains email
+    if "email" in user_info:
+        if "given_name" not in user_info:
+            full = user_info.get("name", "")
+            user_info["given_name"] = full.split(" ")[0] if full else user_info.get("email", "").split("@")[0]
+        if "family_name" not in user_info:
+            full = user_info.get("name", "")
+            parts = full.split(" ")
+            user_info["family_name"] = parts[-1] if len(parts) > 1 else ""
         return user_info
 
     return None
