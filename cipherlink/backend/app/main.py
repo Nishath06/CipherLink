@@ -125,6 +125,7 @@ from app.api.v1.encryption import router as encryption_router
 from app.api.v1.files import router as files_router
 from app.api.v1.audit import router as audit_router
 from app.api.v1.usage import router as usage_router
+from app.api.v1.admin import router as admin_router
 
 from fastapi.staticfiles import StaticFiles
 import os
@@ -139,6 +140,7 @@ app.include_router(encryption_router, prefix="/api/v1")
 app.include_router(files_router, prefix="/api/v1")
 app.include_router(audit_router, prefix="/api/v1")
 app.include_router(usage_router, prefix="/api/v1")
+app.include_router(admin_router, prefix="/api/v1")
 
 
 # ── Health Check ──────────────────────────────────────────────────────────────
