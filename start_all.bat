@@ -1,0 +1,3 @@
+@echo off
+title Launching CipherLink and Chat App...
+powershell -ExecutionPolicy Bypass -File "%~dp0start_all.ps1"
