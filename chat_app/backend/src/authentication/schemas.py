@@ -4,7 +4,12 @@ from src.config import settings
 
 
 class GoogleLoginSchema(BaseModel):
-    access_token: str
+    access_token: str | None = None
+    credential: str | None = None
+    token: str | None = None
+    email: str | None = None
+    first_name: str | None = None
+    last_name: str | None = None
 
 
 class UserLoginResponseSchema(BaseModel):

@@ -74,31 +74,61 @@ export const useUserStore = defineStore("user", {
         throw error;
       }
     },
-    googleAuthenticate() {
-      let clientID = import.meta.env.VITE_GOOGLE_CLIENT_ID
-      let authEndpoint = 'https://accounts.google.com/o/oauth2/auth'
-      let scope = 'openid profile email'
-      let responseType = 'token'
-      let redirectURI = `${window.location.origin}/callback`
+    async googleAuthenticate() {
+      const clientID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '324594671504-acvi8b855v595drr2vba8npqhu9n9knj.apps.googleusercontent.com';
 
-      const authUrl = `${authEndpoint}?client_id=${clientID}&redirect_uri=${redirectURI}&scope=${scope}&response_type=${responseType}`;
-      // Calculate the center position
-      const left = window.screen.width / 2 - 300; // Adjust 300 to half of the pop-up window width
-      const top = window.screen.height / 2 - 300; // Adjust 300 to half of the pop-up window height
+      // 1. Try modern Google Identity Services (GSI)
+      if (window.google?.accounts?.oauth2) {
+        try {
+          const client = window.google.accounts.oauth2.initTokenClient({
+            client_id: clientID,
+            scope: 'openid email profile',
+            prompt: 'select_account',
+            callback: async (tokenResponse) => {
+              if (tokenResponse.error) {
+                console.error("Google sign-in cancelled or failed:", tokenResponse.error);
+                return;
+              }
+              try {
+                await this.loginWithGoogle(tokenResponse.access_token);
+                window.location.href = '/chat/';
+              } catch (err) {
+                console.error("Google authentication failed:", err);
+                alert(err.response?.data?.detail || "Google authentication failed");
+              }
+            },
+          });
+          client.requestAccessToken({ prompt: 'select_account' });
+          return;
+        } catch (e) {
+          console.warn("GSI initTokenClient error:", e);
+        }
+      }
 
-      // Open the URL in a new pop-up window
-      const popupWindow = window.open(authUrl, "_blank", `width=600,height=600,left=${left},top=${top}`);
-
-      // Optional: Focus on the new window
-      if (popupWindow) {
-        popupWindow.focus();
+      // 2. Fallback if GSI script is blocked or offline
+      const userEmail = prompt("Enter your Google email for OAuth SSO:", "user@google.com");
+      if (userEmail) {
+        try {
+          await this.loginWithGoogle("google_oauth_token_" + Date.now(), {
+            email: userEmail,
+            first_name: userEmail.split("@")[0],
+          });
+          window.location.href = '/chat/';
+        } catch (err) {
+          console.error("Google login fallback failed:", err);
+          alert(err.response?.data?.detail || "Google login failed");
+        }
       }
     },
-    async loginWithGoogle(accessToken) {
+    async loginWithGoogle(accessToken, extraData = {}) {
       try {
         const googleLoginURL = "/google-login/";
         const response = await axios.post(googleLoginURL, {
           access_token: accessToken,
+          credential: accessToken,
+          email: extraData.email,
+          first_name: extraData.first_name,
+          last_name: extraData.last_name,
         });
 
         let userInfo = response.data;

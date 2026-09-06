@@ -61,6 +61,11 @@ class GlobalSettings(BaseSettings):
     AWS_REGION_NAME: str = os.getenv("AWS_REGION_NAME", "")
     AWS_IMAGES_BUCKET: str = os.getenv("AWS_IMAGES_BUCKET", "")
 
+    # Google OAuth
+    GOOGLE_CLIENT_ID: str = os.getenv("GOOGLE_CLIENT_ID", "")
+    GOOGLE_CLIENT_SECRET: str = os.getenv("GOOGLE_CLIENT_SECRET", "")
+
+
     @lru_cache
     def get_aws_client_for_image_upload(self):
         """Get an AWS S3 client using credentials from the instance settings."""

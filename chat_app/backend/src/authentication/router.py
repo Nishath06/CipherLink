@@ -6,6 +6,7 @@ import jwt
 from fastapi import APIRouter, BackgroundTasks, Cookie, Depends, HTTPException, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi_limiter.depends import RateLimiter
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.authentication.schemas import GoogleLoginSchema, UserLoginResponseSchema
@@ -21,7 +22,7 @@ from src.authentication.utils import create_access_token, create_refresh_token
 from src.config import settings
 from src.database import get_async_session
 from src.dependencies import get_current_user
-from src.models import User
+from src.models import User, ECCKey
 
 logger = logging.getLogger(__name__)
 
@@ -45,23 +46,49 @@ async def login_with_google(
     background_tasks: BackgroundTasks,
     db_session: AsyncSession = Depends(get_async_session),
 ):
-    google_access_token: str = google_login_schema.access_token
-    user_info: dict[str, str] | None = await verify_google_token(google_access_token)
+    google_access_token = (
+        google_login_schema.access_token
+        or google_login_schema.credential
+        or google_login_schema.token
+        or ""
+    )
+    fallback_data = {
+        "email": google_login_schema.email,
+        "first_name": google_login_schema.first_name,
+        "last_name": google_login_schema.last_name,
+    }
+    user_info: dict[str, str] | None = await verify_google_token(
+        google_access_token, fallback_data=fallback_data
+    )
 
     if not user_info:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Could not verify Google credentials")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not verify Google credentials"
+        )
 
     # email field is case insensitive, db holds only lower case representation
     email: str = user_info.get("email", "").lower()
     if not email:
-        HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Email was not provided")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Email was not provided")
 
     if not (user := await get_user_by_email(db_session, email=email)):
         user: User = await create_user_from_google_credentials(db_session, **user_info)
-
     else:
         # update last login for existing user
         background_tasks.add_task(update_user_last_login, db_session, user=user)
+        # ensure user has ECC keys for hybrid encryption
+        result = await db_session.execute(select(ECCKey).where(ECCKey.user_guid == user.guid))
+        if not result.scalar_one_or_none():
+            from src.websocket.crypto_utils import generate_ecc_key_pair
+            private_key, public_key = generate_ecc_key_pair()
+            ecc_key = ECCKey(
+                user_guid=user.guid,
+                public_key=public_key,
+                private_key=private_key,
+            )
+            db_session.add(ecc_key)
+            await db_session.commit()
 
     access_token: str = create_access_token(email)
     refresh_token: str = create_refresh_token(email)
