@@ -4,6 +4,32 @@ This workspace contains two distinct, high-performance cryptographic security pr
 
 ---
 
+## ⚡ Quick Start (Unified Single Runner)
+
+Run both applications (all 4 backend & frontend services) with a single Python script:
+
+```bash
+# Run both CipherLink and Chat App together (all 4 services)
+python run.py
+
+# Or using the alias
+python run_all.py
+```
+
+### Useful CLI Flags:
+```bash
+python run.py --app cipherlink    # Run only CipherLink (BE + FE)
+python run.py --app chat          # Run only Chat App (BE + FE)
+python run.py --backend-only      # Run only FastAPI backends (:8000, :8001)
+python run.py --frontend-only     # Run only Vite frontends (:3000, :5173)
+python run.py --windows           # Launch each service in its own terminal window
+python run.py --status            # View online/offline status of services and ports
+python run.py --stop              # Cleanly terminate all running services
+python run.py --dry-run           # Inspect resolved paths and commands without launching
+```
+
+---
+
 ## 📁 1. `chat_app/` — CipherLink Hybrid Encrypted Chat Application
 
 A real-time messaging and file sharing application built with **Vue 3**, **FastAPI**, **WebSockets**, **PostgreSQL**, and **Multi-Level Hybrid ECC-AES Encryption**.
