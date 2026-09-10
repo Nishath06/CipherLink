@@ -128,175 +128,61 @@ export const useWebsocketStore = defineStore("websocket", {
       );
     },
 
-    // handleNewMessage(receivedMessage) {
-    //   const chatStore = useChatStore();
-    //   const messageStore = useMessageStore();
-    //   const userStore = useUserStore();
-
-    //   if (receivedMessage.type === "new") {
-    //     // release input lock
-    //     chatStore.inputLocked = false;
-    //     const isMessageFromCurrentUser =
-    //       receivedMessage.user_guid === userStore.currentUser.userGUID;
-
-    //     const foundChatIndex = chatStore.directChats.findIndex(
-    //       (directChat) => directChat.chat_guid === receivedMessage.chat_guid
-    //     );
-    //     // check if index is found
-    //     if (foundChatIndex !== -1) {
-    //       const foundChat = chatStore.directChats[foundChatIndex];
-    //       // update updated_at (for chats list on left panel)
-    //       foundChat.updated_at = receivedMessage.created_at;
-    //       // increment new message count for chat and all chats if not own message
-    //       if (!isMessageFromCurrentUser) {
-    //         foundChat.new_messages_count++;
-    //         chatStore.totalUnreadMessagesCount++;
-    //         chatStore.friendTyping = false;
-    //       }
-
-    //       // Unshift the found chat to the beginning of the array
-    //       // if it is not already on top
-    //       if (foundChatIndex !== 0) {
-    //         // Remove the found chat from its current position
-    //         chatStore.directChats.splice(foundChatIndex, 1);
-    //         chatStore.directChats.unshift(foundChat);
-    //       }
-    //     }
-
-    //     // append new message to the open chat if new message belongs to current chat
-    //     if (receivedMessage.chat_guid === chatStore.currentChatGUID) {
-
-    //       // Change data in temporary message
-    //       // assumes can hold only 1 temporary chat
-    //       // hence, replaces the first element
-    //       if (isMessageFromCurrentUser) {
-    //         // if own message has message.guid => message sent by current WS connection
-    //         // TODO: should we check if first message being retrieved belongs to the current user?
-    //         if (!messageStore.currentChatMessages[0].message_guid) {
-    //           messageStore.currentChatMessages[0].is_sending = false;
-    //           messageStore.currentChatMessages[0].message_guid =
-    //             receivedMessage.message_guid;
-    //           messageStore.currentChatMessages[0].created_at =
-    //             receivedMessage.created_at;
-    //         } else {
-    //           // it is own message sent from other WS connection => append whole message
-    //           messageStore.currentChatMessages.unshift(receivedMessage)
-    //         }
-    //       } else {
-    //         messageStore.currentChatMessages.unshift(receivedMessage);
-    //       }
-    //     }
-    //   }
-    // },
-    handleNewMessage(receivedMessage) { 
+    handleNewMessage(receivedMessage) {
       const chatStore = useChatStore();
       const messageStore = useMessageStore();
       const userStore = useUserStore();
-    
-      console.log("Received message:", receivedMessage);
-    
+
+      if (!receivedMessage) return;
+
       if (receivedMessage.type === "new" || receivedMessage.type === "new_file") {
         chatStore.inputLocked = false;
+        const currentUserId = userStore.currentUser?.userGUID ? String(userStore.currentUser.userGUID).toLowerCase() : "";
         const isMessageFromCurrentUser =
-          receivedMessage.user_guid === userStore.currentUser.userGUID;
-    
-        console.log("Message is from current user:", isMessageFromCurrentUser);
-    
+          String(receivedMessage.user_guid).toLowerCase() === currentUserId;
+
         const foundChatIndex = chatStore.directChats.findIndex(
           (directChat) => directChat.chat_guid === receivedMessage.chat_guid
         );
-    
-        console.log("Found chat index:", foundChatIndex);
-    
+
         if (foundChatIndex !== -1) {
           const foundChat = chatStore.directChats[foundChatIndex];
           foundChat.updated_at = receivedMessage.created_at;
-          console.log("Updated chat timestamp:", foundChat.updated_at);
           if (!isMessageFromCurrentUser) {
-            foundChat.new_messages_count++;
-            chatStore.totalUnreadMessagesCount++;
+            foundChat.new_messages_count = (foundChat.new_messages_count || 0) + 1;
+            chatStore.totalUnreadMessagesCount = (chatStore.totalUnreadMessagesCount || 0) + 1;
             chatStore.friendTyping = false;
           }
           if (foundChatIndex !== 0) {
             chatStore.directChats.splice(foundChatIndex, 1);
-            
-            console.log("Before appending messages:", [...messageStore.currentChatMessages]);
             chatStore.directChats.unshift(foundChat);
-            console.log("After appending messages:", [...messageStore.currentChatMessages]);
-
           }
         }
-            if (receivedMessage.type === "new_file") {
-              console.log("Processing new file message...");
-           
-              try {
-                  const byteCharacters = atob(receivedMessage.file_data);
-                  const byteNumbers = new Array(byteCharacters.length);
-                  for (let i = 0; i < byteCharacters.length; i++) {
-                      byteNumbers[i] = byteCharacters.charCodeAt(i);
-                  }
-                  const byteArray = new Uint8Array(byteNumbers);
-          
-                  // Get file extension from received message
-                  const fileExtension = receivedMessage.file_extension || "";  // Example: ".jpg"
-                  
-                  // MIME type mapping
-                  const mimeTypes = {
-                      ".jpg": "image/jpeg",
-                      ".jpeg": "image/jpeg",
-                      ".png": "image/png",
-                      ".gif": "image/gif",
-                      ".pdf": "application/pdf",
-                      ".txt": "text/plain",
-                      ".mp4": "video/mp4",
-                      ".mp3": "audio/mpeg",
-                      ".json": "application/json",
-                      ".zip": "application/zip"
-                  };
-          
-                  // Determine MIME type
-                  const mimeType = mimeTypes[fileExtension.toLowerCase()] || "application/octet-stream";
-          
-                  // Create file Blob with correct MIME type
-                  const fileBlob = new Blob([byteArray], { type: mimeType });
-                  
-                  // Generate file URL
-                  const fileUrl = URL.createObjectURL(fileBlob);
-                  
-                  // Attach the file URL to the message
-                  receivedMessage.file_url = fileUrl;
-          
-                  // Check if the file is an image
-                  const imageExtensions = [".jpg", ".jpeg", ".png", ".gif"];
-                  if (imageExtensions.includes(fileExtension.toLowerCase())) {
-                      receivedMessage.isImage = true;  // Flag to identify image files
-                  } else {
-                      receivedMessage.isImage = false;
-                  }
-          
-                  console.log("File successfully processed:", fileUrl);
-              } catch (error) {
-                  console.error("Error processing file message:", error);
-              }
+
+        // Process message through standardized message normalizer
+        const processedMessage = messageStore.processMessage(receivedMessage);
+
+        // Append message to chat if belongs to currently open chat
+        if (processedMessage.chat_guid === chatStore.currentChatGUID) {
+          if (isMessageFromCurrentUser && processedMessage.type === "new") {
+            // Find temporary sending message
+            const pendingIndex = messageStore.currentChatMessages.findIndex(
+              (m) => m.is_sending && !m.message_guid && String(m.user_guid).toLowerCase() === currentUserId
+            );
+            if (pendingIndex !== -1) {
+              messageStore.currentChatMessages[pendingIndex].is_sending = false;
+              messageStore.currentChatMessages[pendingIndex].message_guid = processedMessage.message_guid;
+              messageStore.currentChatMessages[pendingIndex].created_at = processedMessage.created_at;
+            } else {
+              messageStore.currentChatMessages.unshift(processedMessage);
+            }
+          } else {
+            messageStore.currentChatMessages.unshift(processedMessage);
           }
-          
-          // Append message to chat
-          if (receivedMessage.chat_guid === chatStore.currentChatGUID) {
-              console.log("Appending message to current chat...");
-              if (isMessageFromCurrentUser && receivedMessage.type === "new") {
-                  if (messageStore.currentChatMessages.length > 0 && !messageStore.currentChatMessages[0].message_guid) {
-                      messageStore.currentChatMessages[0].is_sending = false;
-                      messageStore.currentChatMessages[0].message_guid = receivedMessage.message_guid;
-                      messageStore.currentChatMessages[0].created_at = receivedMessage.created_at;
-                  } else {
-                      messageStore.currentChatMessages.unshift(receivedMessage);
-                  }
-              } else {
-                  messageStore.currentChatMessages.unshift(receivedMessage);
-              }
-          }
-      
-      
+
+          // Scroll to bottom when new message arrives
+          chatStore.scrollToBottom("smooth");
+        }
       }
     },
     
@@ -419,7 +305,7 @@ export const useWebsocketStore = defineStore("websocket", {
     },
 
     
-    async sendFile(file) {
+    async sendFile(file, receiverGuid = null) {
       const chatStore = useChatStore();
       const userStore = useUserStore();
     
@@ -438,8 +324,8 @@ export const useWebsocketStore = defineStore("websocket", {
       reader.onload = async () => {
         const base64File = reader.result.split(",")[1]; // Extract base64 data
     
-        // Get the receiver GUID from the current chat
-        const receiver_guid = chatStore.currentFriendGUID;
+        // Get the receiver GUID from parameter or current chat
+        const receiver_guid = receiverGuid || chatStore.currentFriendGUID;
     
         if (!receiver_guid) {
           console.error("Receiver GUID is missing.");
@@ -452,7 +338,7 @@ export const useWebsocketStore = defineStore("websocket", {
           chat_guid: chatStore.currentChatGUID,
           file_name: file.name,
           file_data: base64File,
-          receiver_guid: receiver_guid, // Use the receiver_guid from the chat store
+          receiver_guid: receiver_guid,
         };
     
         try {
@@ -462,8 +348,6 @@ export const useWebsocketStore = defineStore("websocket", {
           console.error("Error sending file:", error);
         }
       };
-    
-    
     
       reader.onerror = (error) => {
         console.error("Error reading file:", error);

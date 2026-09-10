@@ -33,7 +33,10 @@ export const useChatStore = defineStore("chat", {
     },
 
     handleScroll() {
-      this.isBottom = this.chatWindow.scrollTop >= -50 ? true : false;
+      if (!this.chatWindow) return;
+      // In flex-direction: column-reverse, scroll position 0 is at the bottom.
+      const st = this.chatWindow.scrollTop;
+      this.isBottom = Math.abs(st) <= 50;
     },
 
     addWindowScrollHandler() {
@@ -53,9 +56,12 @@ export const useChatStore = defineStore("chat", {
     scrollToBottom(behavior) {
       if (this.chatWindow) {
         this.chatWindow.scrollTo({
-          top: this.chatWindow.scrollHeight,
-          behavior: behavior,
+          top: 0,
+          behavior: behavior || "smooth",
         });
+        if (Math.abs(this.chatWindow.scrollTop) > 50) {
+          this.chatWindow.scrollTop = 0;
+        }
         this.isBottom = true;
       }
     },
@@ -187,15 +193,17 @@ export const useChatStore = defineStore("chat", {
       // scroll to earliest unread message or bottom
       // wait for DOM to update
       nextTick(() => {
-        if (messageStore.getEarliestUnreadMessageIndex !== false) {
+        if (messageStore.getEarliestUnreadMessageIndex !== false && this.chatWindow?.children) {
           const unreadMessageToScroll =
             this.chatWindow.children[messageStore.getEarliestUnreadMessageIndex]
-              .lastElementChild;
+              ?.lastElementChild;
 
-          unreadMessageToScroll.scrollIntoView({
-            behavior: "auto",
-            block: "start",
-          });
+          if (unreadMessageToScroll) {
+            unreadMessageToScroll.scrollIntoView({
+              behavior: "auto",
+              block: "start",
+            });
+          }
         } else {
           // scroll to bottom if chatWindow is set
           if (this.chatWindow) {

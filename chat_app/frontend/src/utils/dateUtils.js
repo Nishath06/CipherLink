@@ -1,5 +1,7 @@
 export const formatTimestamp = (timestampString) => {
+  if (!timestampString) return "";
   const date = new Date(timestampString);
+  if (isNaN(date.getTime())) return "";
   return date.toLocaleTimeString([], {
     hour: "2-digit",
     minute: "2-digit",
@@ -9,17 +11,22 @@ export const formatTimestamp = (timestampString) => {
 
 // Function to format the date as "day of the week, day, and month"
 export const formatDate = (timestampString) => {
+  if (!timestampString) return "";
   const date = new Date(timestampString);
+  if (isNaN(date.getTime())) return "";
   const options = { weekday: "long", day: "numeric", month: "long" };
   return date.toLocaleDateString(undefined, options);
 };
 
 export const formatTimeFromDateString = (dateString) => {
   if (!dateString) {
-    return ""
+    return "";
   }
 
   const date = new Date(dateString);
+  if (isNaN(date.getTime())) {
+    return "";
+  }
   const currentDate = new Date();
 
   // Check if the date is in the same day as today

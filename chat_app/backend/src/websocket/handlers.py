@@ -533,6 +533,7 @@ async def file_upload_handler(
             chat_guid=chat_guid,
             user_guid=str(current_user.guid),
             file_data=file_data,  # original base64
+            file_name=file_name,
             file_extension=file_extension,
             created_at=datetime.utcnow(),
             is_read=False,

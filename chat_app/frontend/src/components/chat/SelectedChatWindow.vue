@@ -25,7 +25,7 @@
         <v-card-text>
           {{ previewFileSize }} Mb
         </v-card-text>
-        <v-btn color="primary" class="my-5 mx-2">Send</v-btn>
+        <v-btn color="primary" class="my-5 mx-2" @click="confirmSendFile">Send</v-btn>
       </v-card>
 
     </v-dialog>
@@ -105,83 +105,74 @@ const previewFileName = ref("");
 const previewFileSize = ref(null);
 const previewImageUrl = ref("");
 const isPreviewImage = ref(false);
+const selectedUploadFile = ref(null);
 
 const showEmoji = ref(false);
 
 const toggleEmoji = () => {
   if (!showEmoji.value) {
-    textInput.value.focus()
+    textInput.value.focus();
   }
-  showEmoji.value = !showEmoji.value
-}
-
+  showEmoji.value = !showEmoji.value;
+};
 
 const closePreview = () => {
   isPreviewImage.value = false;
+  previewImageUrl.value = "";
+  previewFileName.value = "";
+  previewFileSize.value = null;
+  selectedUploadFile.value = null;
   showAttachmentPreview.value = false;
-}
+};
 
 const createPreviewData = (file) => {
-  file = file[0]
-  console.log("FILE", file);
-  if (file.type === "image/jpeg") {
-
+  if (!file) return;
+  if (file.type && file.type.startsWith("image/")) {
     const reader = new FileReader();
-
-    reader.onload = e => {
+    reader.onload = (e) => {
       previewImageUrl.value = e.target.result;
     };
     isPreviewImage.value = true;
     reader.readAsDataURL(file);
+  } else {
+    isPreviewImage.value = false;
   }
-  previewFileSize.value = file.size / 1000000
-  previewFileName.value = file.name
-
-}
-
+  previewFileSize.value = (file.size / (1024 * 1024)).toFixed(2);
+  previewFileName.value = file.name || "Attachment";
+};
 
 const handleFileUpload = (file) => {
   if (!file) return;
-  createPreviewData(file);
-  const selectedFile = Array.isArray(file) ? file[0] : file;
-  
-  console.log("File selected", selectedFile);
-  showAttachmentPreview.value = true;
-  const chatStore = useChatStore();
-  const userStore = useUserStore();
+  const singleFile = Array.isArray(file) ? file[0] : file;
+  if (!singleFile) return;
 
-  // ✅ Get current chat
+  selectedUploadFile.value = singleFile;
+  createPreviewData(singleFile);
+  showAttachmentPreview.value = true;
+};
+
+const confirmSendFile = () => {
+  if (!selectedUploadFile.value) return;
+
   const currentChat = chatStore.directChats.find(
     (chat) => chat.chat_guid === chatStore.currentChatGUID
   );
 
-  console.log("Current chat object:", currentChat);
-
-  if (!currentChat) {
-    console.error("❌ No active chat found.");
-    return;
-  }
-
-  // ✅ Extract receiver GUID from the `friend` object
-  const receiver_guid = currentChat.friend?.guid;
-  console.log("Receiver GUID:", receiver_guid);
+  const receiver_guid = currentChat?.friend?.guid || chatStore.currentFriendGUID;
   if (!receiver_guid) {
     console.error("❌ Receiver GUID not found in chat object.");
+    closePreview();
     return;
   }
-  
-  console.log(`✅ Sending file to receiver: ${receiver_guid}`);// ✅ Include receiver GUID
 
-  // ✅ Call `sendFile` directly from websocketStore
   if (websocketStore.sendFile) {
-    websocketStore.sendFile(selectedFile,receiver_guid);
+    websocketStore.sendFile(selectedUploadFile.value, receiver_guid);
   } else {
     console.error("sendFile function not found in websocketStore");
   }
 
   closePreview();
 };
-
 
 const onSelectEmoji = (emoji) => {
   const cursorPosition = textInput.value.selectionStart;
@@ -199,38 +190,42 @@ const onSelectEmoji = (emoji) => {
     textInput.value.selectionEnd = cursorPosition + emoji.i.length;
     // Place focus at the updated cursor position
     textInput.value.focus();
-  })
-}
+  });
+};
+
 const sendMessage = async () => {
   if (socket.value.readyState === 1 && messageToSend.value.trim() !== "") {
-    await websocketStore.sendMessage(messageToSend.value)
+    const text = messageToSend.value;
+    await websocketStore.sendMessage(text);
 
     // make input not editable before receive own message via websocket
     inputLocked.value = true;
     // close emoji if open
     showEmoji.value = false;
+
+    // generate a unique temporary ID for Vue list keying
+    const tempId = `temp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
     // append messages without confirmation from websocket
-    currentChatMessages.value.unshift(
-      {
-        user_guid: currentUser.value.userGUID,
-        chat_guid: currentChatGUID,
-        content: messageToSend.value,
-        created_at: new Date(),
-        is_read: false,
-        is_sending: true,
-      }
-    );
+    currentChatMessages.value.unshift({
+      temp_id: tempId,
+      user_guid: currentUser.value.userGUID,
+      chat_guid: currentChatGUID.value,
+      content: text,
+      created_at: new Date(),
+      is_read: false,
+      is_sending: true,
+      message_type: "text",
+    });
+
     // Clear the input field
     messageToSend.value = "";
     // scroll to bottom when own new message is appended (after DOM update)
     nextTick(() => {
       chatStore.scrollToBottom("smooth");
-    })
-
-
-
+    });
   }
-}
+};
 
 </script>
 

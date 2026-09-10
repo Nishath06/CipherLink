@@ -11,12 +11,17 @@
 
 .bubble {
   position: relative;
-  line-height: 24px;
-  width: 300px;
+  line-height: 22px;
+  width: fit-content;
+  max-width: 82%;
+  min-width: 120px;
   background: #B9F6CA;
-  border-radius: 25px;
-  text-align: center;
+  border-radius: 18px;
+  text-align: left;
   color: #000;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
 }
 
 .bubble-bottom-right:before {
@@ -24,12 +29,12 @@
   width: 0px;
   height: 0px;
   position: absolute;
-  border-left: 24px solid transparent; /* Controls the left side of the triangle */
-  border-right: 20px solid transparent; /* Controls the right side of the triangle (transparent) */
-  border-top: 12px solid transparent; /* Controls the top side of the triangle */
-  border-bottom: 20px solid #B9F6CA; /* Controls the bottom side of the triangle (transparent) */
-  right: 10px; /* Position from the left edge of the bubble */
-  bottom: -10px; /* Position from the bottom edge of the bubble */
+  border-left: 20px solid transparent;
+  border-right: 16px solid transparent;
+  border-top: 10px solid transparent;
+  border-bottom: 16px solid #B9F6CA;
+  right: 8px;
+  bottom: -8px;
   transform: rotate(-115deg);
 }
 </style>

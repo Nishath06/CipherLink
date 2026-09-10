@@ -22,9 +22,11 @@ class SendMessageSchema(BaseModel):
 
 class SendFileSchema(BaseModel):
     type: str = "new_file"  # Indicating it's a new file message
+    message_type: str = "file"
     message_guid: str
     chat_guid: str
     user_guid: str
+    file_name: str | None = None
     file_data: str  # Base64 encoded file data
     file_extension: str
     created_at: datetime

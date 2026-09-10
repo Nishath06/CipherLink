@@ -79,9 +79,13 @@ class GetMessageSchema(BaseModel):
     message_guid: UUID4
     user_guid: UUID4
     chat_guid: UUID4
-    content: str
+    content: Optional[str] = ""
     created_at: datetime
     is_read: bool | None = False
+    message_type: Optional[str] = "text"
+    file_name: Optional[str] = None
+    file_s3url: Optional[str] = None
+    file_data: Optional[str] = None
 
 
 class GetMessagesSchema(BaseModel):
@@ -94,25 +98,3 @@ class GetOldMessagesSchema(BaseModel):
     messages: list[GetMessageSchema]
     has_more_messages: bool
 
-# class GetMessageSchema(BaseModel):
-#     message_guid: UUID4
-#     user_guid: Optional[UUID4] = None
-#     chat_guid: UUID4
-#     content: Optional[str] = None
-#     created_at: datetime
-#     file_name: Optional[str] = None
-#     file_data: Optional[str] = None
-#     is_read: bool | None = False
-#     message_type: Optional[str] = None # ✅ Ensure this field exists
-#     file_path: Optional[str] = None
-
-# class GetMessagesSchema(BaseModel):
-#     messages: list[GetMessageSchema]
-#     has_more_messages: bool
-#     last_read_message: LastReadMessageSchema = None
-
-
-# class GetOldMessagesSchema(BaseModel):
-    
-#     messages: list[GetMessageSchema]
-#     has_more_messages: bool

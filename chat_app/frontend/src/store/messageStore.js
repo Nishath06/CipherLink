@@ -16,27 +16,40 @@ export const useMessageStore = defineStore("messages", {
   },
   actions: {
     processMessage(msg) {
-      if (msg.message_type === "file") {
-        let fileURL = "";
-        const fileExtension = msg.file_name?.split('.').pop()?.toLowerCase() || "";
-        
+      if (!msg) return msg;
+      const isFile = msg.message_type === "file" || msg.type === "new_file";
+      if (isFile) {
+        let fileURL = msg.file_url || "";
+        let fileExtension = "";
+
+        if (msg.file_name && msg.file_name.includes(".")) {
+          fileExtension = msg.file_name.split(".").pop().toLowerCase();
+        } else if (msg.file_extension) {
+          fileExtension = msg.file_extension.replace(/^\./, "").toLowerCase();
+        }
+
         // MIME types mapping
         const mimeTypes = {
-          "jpg": "image/jpeg",
-          "jpeg": "image/jpeg",
-          "png": "image/png",
-          "gif": "image/gif",
-          "pdf": "application/pdf",
-          "txt": "text/plain",
-          "mp4": "video/mp4",
-          "mp3": "audio/mpeg",
-          "json": "application/json",
-          "zip": "application/zip"
+          jpg: "image/jpeg",
+          jpeg: "image/jpeg",
+          png: "image/png",
+          gif: "image/gif",
+          webp: "image/webp",
+          svg: "image/svg+xml",
+          bmp: "image/bmp",
+          pdf: "application/pdf",
+          txt: "text/plain",
+          mp4: "video/mp4",
+          mp3: "audio/mpeg",
+          json: "application/json",
+          zip: "application/zip",
+          doc: "application/msword",
+          docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         };
-        
+
         const mimeType = mimeTypes[fileExtension] || "application/octet-stream";
-        
-        if (msg.file_data) {
+
+        if (msg.file_data && !fileURL) {
           try {
             // Convert Base64 to Blob URL
             const byteCharacters = atob(msg.file_data);
@@ -51,15 +64,17 @@ export const useMessageStore = defineStore("messages", {
             console.error("Error converting base64 to Blob:", err);
           }
         }
-        
-        const imageExtensions = ["jpg", "jpeg", "png", "gif"];
+
+        const imageExtensions = ["jpg", "jpeg", "png", "gif", "webp", "bmp", "svg"];
         const isImage = imageExtensions.includes(fileExtension);
-        
+
         return {
           ...msg,
+          message_type: "file",
+          file_name: msg.file_name || `attachment.${fileExtension || "dat"}`,
           file_url: fileURL,
           isImage: isImage,
-          file_extension: "." + fileExtension
+          file_extension: fileExtension ? "." + fileExtension : "",
         };
       }
       return msg;
@@ -96,101 +111,6 @@ export const useMessageStore = defineStore("messages", {
         throw error;
       }
     },
-    // async getHistoricalMessages(chatGUID, lastMessageGUID) {
-    //   try {
-    //     console.log(`Fetching older messages for chat: ${chatGUID}, last message: ${lastMessageGUID}`);
-    
-    //     const response = await axios.get(`/chat/${chatGUID}/messages/old/${lastMessageGUID}/`);
-    //     console.log("Raw response data:", response.data); // ✅ Debug: Log full response
-    
-    //     let messages = response.data.messages.map((msg) => {
-    //       console.log("Processing message:", msg); // ✅ Debug: Log each message
-    
-    //       if (msg.message_type === "file") {
-    //         let fileURL = msg.file_url; // ✅ Ensure backend sends file_url
-    //         console.log(`File message detected - GUID: ${msg.message_guid}, file_url: ${fileURL}`);
-    
-    //         // Extract file extension
-    //         const fileExtension = msg.file_name?.split('.').pop()?.toLowerCase() || "";
-            
-    //         // MIME types mapping
-    //         const mimeTypes = {
-    //           "jpg": "image/jpeg",
-    //           "jpeg": "image/jpeg",
-    //           "png": "image/png",
-    //           "gif": "image/gif",
-    //           "pdf": "application/pdf",
-    //           "txt": "text/plain",
-    //           "mp4": "video/mp4",
-    //           "mp3": "audio/mpeg",
-    //           "json": "application/json",
-    //           "zip": "application/zip"
-    //         };
-            
-    //         const mimeType = mimeTypes[fileExtension] || "application/octet-stream";
-            
-    //         if ( msg.file_data) {
-    //           console.log("No file_url found, attempting to convert base64 data");
-    
-    //           try {
-    //             // Validate if file_data is Base64
-    //             if (/^[A-Za-z0-9+/=]+$/.test(msg.file_data)) {
-    //               // Convert Base64 to Blob URL
-    //               const byteCharacters = atob(msg.file_data);
-    //               const byteNumbers = new Array(byteCharacters.length);
-    //               for (let i = 0; i < byteCharacters.length; i++) {
-    //                 byteNumbers[i] = byteCharacters.charCodeAt(i);
-    //               }
-    //               const byteArray = new Uint8Array(byteNumbers);
-    //               const blob = new Blob([byteArray], { type: mimeType });
-    //               fileURL = URL.createObjectURL(blob);
-    //               console.log("Generated blob URL:", fileURL);
-    //             } else {
-    //               console.error("Invalid Base64 data detected, skipping conversion.");
-    //             }
-    //           } catch (err) {
-    //             console.error("Error converting base64 to Blob:", err);
-    //           }
-    //         }
-    
-    //         return {
-    //           message_guid: msg.message_guid,
-    //           user_guid: msg.user_guid,
-    //           chat_guid: msg.chat_guid,
-    //           message_type: "file",
-    //           file_url: fileURL || "", // Ensure this is always set
-    //           file_name: msg.file_name || "Unknown File",
-    //           file_extension: fileExtension || "unknown", // Include file extension in the response
-    //           created_at: msg.created_at,
-    //           is_read: msg.is_read,
-    //         };
-    //       } else {
-    //         console.log(`Text message detected - GUID: ${msg.message_guid}, content: ${msg.content}`);
-    
-    //         return {
-    //           message_guid: msg.message_guid,
-    //           user_guid: msg.user_guid,
-    //           chat_guid: msg.chat_guid,
-    //           message_type: "text",
-    //           content: msg.content || "", // Ensure content is always a string
-    //           created_at: msg.created_at,
-    //           is_read: msg.is_read,
-    //         };
-    //       }
-    //     });
-    
-    //     console.log("Processed messages:", messages); // ✅ Debug: Check the final list
-    
-    //     return { messages, has_more_messages: response.data.has_more_messages };
-    //   } catch (error) {
-    //     console.error("Error fetching old messages:", error);
-    //     throw error;
-    //   }
-    // },
-    
-    
-    
-    
 
     setLastReadMessage(lastReadMessageData) {
       this.lastReadMessage.guid = lastReadMessageData.guid;
